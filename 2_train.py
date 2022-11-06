@@ -5,15 +5,15 @@ import optax
 import time
 import wandb
 
-from lib.dataset.enwiki import load_enwiki
+from lib.dataset.lihkg import load_lihkg
 from lib.model import fwd_transformer
-from lib.param_utils.init_params import init_params
+from lib.param_utils.load_params import load_params
 from lib.param_utils.save_params import save_params
 from lib.preprocessor.Preprocessor import Preprocessor
 from lib.random.wrapper import seed2key, split_key
 from lib.training.cross_entropy_loss import cross_entropy_loss
 
-pad_token_id = 1  # BartTokenizerWithoutOverflowEOS.from_pretrained('facebook/bart-base').pad_token_id
+pad_token_id = 0  # BertTokenizer.from_pretrained('Ayaka/bart-base-cantonese').pad_token_id
 optimizer = None
 
 @jax.jit
@@ -53,7 +53,7 @@ def main():
     jax.config.update('jax_platforms', 'cpu')  # suppress TPU in subprocesses
     process_index = jax.process_index()
     if process_index == 0:
-        wandb.init(project='bart-pretraining')
+        wandb.init(project='bart-base-cantonese')
 
     # hyperparameters
 
@@ -72,7 +72,7 @@ def main():
 
     from random import Random
     rng = Random(42)
-    sentences = load_enwiki(show_progress_bar=process_index == 0)
+    sentences = load_lihkg()
     rng.shuffle(sentences)
     sentences_train = sentences[6400:]
     sentences_eval = sentences[:6400]
@@ -84,8 +84,7 @@ def main():
     key, subkey = split_key(key)
     preprocessor_eval = Preprocessor(sentences_eval, key=subkey, batch_size_per_device=batch_size_per_device_eval, n_workers=16)
 
-    key, subkey = split_key(key)
-    params = init_params(key=subkey)
+    params = load_params('untrained_params.dat')
 
     global optimizer
     optimizer = optax.chain(
